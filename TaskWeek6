@@ -1,0 +1,1256 @@
+{
+  "metadata": {
+    "kernelspec": {
+      "language": "python",
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "language_info": {
+      "pygments_lexer": "ipython3",
+      "nbconvert_exporter": "python",
+      "version": "3.6.4",
+      "file_extension": ".py",
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "name": "python",
+      "mimetype": "text/x-python"
+    },
+    "kaggle": {
+      "accelerator": "none",
+      "dataSources": [
+        {
+          "sourceId": 2510329,
+          "sourceType": "datasetVersion",
+          "datasetId": 1520310
+        }
+      ],
+      "dockerImageVersionId": 30260,
+      "isInternetEnabled": false,
+      "language": "python",
+      "sourceType": "notebook",
+      "isGpuEnabled": false
+    },
+    "colab": {
+      "name": "notebook4185b104c8",
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "nbformat_minor": 0,
+  "nbformat": 4,
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/sanchianatisha/TaskWeek6/blob/main/TaskWeek6\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "#### Nama : Sanchia Natisha Kenzie\n",
+        "#### NPM : 2106724990\n",
+        "#### Link Code: https://www.kaggle.com/code/kevinmorgado/twitter-sentiment-analysis-logistic-regression"
+      ],
+      "metadata": {
+        "id": "BeHJG197Y0W-"
+      }
+    },
+    {
+      "source": [
+        "# IMPORTANT: RUN THIS CELL IN ORDER TO IMPORT YOUR KAGGLE DATA SOURCES,\n",
+        "# THEN FEEL FREE TO DELETE THIS CELL.\n",
+        "# NOTE: THIS NOTEBOOK ENVIRONMENT DIFFERS FROM KAGGLE'S PYTHON\n",
+        "# ENVIRONMENT SO THERE MAY BE MISSING LIBRARIES USED BY YOUR\n",
+        "# NOTEBOOK.\n",
+        "import kagglehub\n",
+        "jp797498e_twitter_entity_sentiment_analysis_path = kagglehub.dataset_download('jp797498e/twitter-entity-sentiment-analysis')\n",
+        "\n",
+        "print('Data source import complete.')\n"
+      ],
+      "metadata": {
+        "id": "W8MyY1oXYx7H",
+        "outputId": "54490ad5-d581-4fc7-ac3f-13bf158253c7",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "cell_type": "code",
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Warning: Looks like you're using an outdated `kagglehub` version, please consider updating (latest version: 0.3.3)\n",
+            "Downloading from https://www.kaggle.com/api/v1/datasets/download/jp797498e/twitter-entity-sentiment-analysis?dataset_version_number=2...\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "100%|██████████| 1.99M/1.99M [00:00<00:00, 93.7MB/s]"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Extracting files...\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Data source import complete.\n"
+          ]
+        }
+      ],
+      "execution_count": 1
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# Twitter sentiment analysis with Logistic Regression and XGBoost\n",
+        "\n",
+        "![pexels-brett-jordan-5417837.jpg](https://images.pexels.com/photos/5417837/pexels-photo-5417837.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1)\n",
+        "\n",
+        "In this notebook I present a simple regression modeling of the sentiment analysis of a database of tweets related to specific companies. This is structured as follows:\n",
+        "\n",
+        "1. Initial data transformation\n",
+        "2. Plotting features\n",
+        "3. Text analysis\n",
+        "4. Logistic Regression model\n",
+        "5. XGBoost model\n",
+        "6. Final Remarks\n",
+        "\n",
+        "The main objective is to present a simple NLP project and to practice the main uses of libraries such as `wordcloud`,`sklearn`, `nltk` and `re`."
+      ],
+      "metadata": {
+        "id": "V0Cu5IlbYx7J"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# 1. Initial data transformation\n",
+        "\n",
+        "As an initial approach, all the main libraries and functions were summarized in the following cell, focusing on data visualization, text analysis, text vectorization, and model building.\n",
+        "\n",
+        "Additionally, the stopwords from English were downloaded from the `nltk` library."
+      ],
+      "metadata": {
+        "id": "NNmuIj8dYx7K"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import numpy as np # linear algebra\n",
+        "import pandas as pd # data processing\n",
+        "pd.options.mode.chained_assignment = None\n",
+        "import os #File location\n",
+        "for dirname, _, filenames in os.walk('/kaggle/input'):\n",
+        "    for filename in filenames:\n",
+        "        print(os.path.join(dirname, filename))\n",
+        "\n",
+        "from wordcloud import WordCloud #Word visualization\n",
+        "import matplotlib.pyplot as plt #Plotting properties\n",
+        "import seaborn as sns #Plotting properties\n",
+        "from sklearn.feature_extraction.text import CountVectorizer #Data transformation\n",
+        "from sklearn.model_selection import train_test_split #Data testing\n",
+        "from sklearn.linear_model import LogisticRegression #Prediction Model\n",
+        "from sklearn.metrics import accuracy_score #Comparison between real and predicted\n",
+        "from xgboost import XGBClassifier\n",
+        "from sklearn.preprocessing import LabelEncoder #Variable encoding and decoding for XGBoost\n",
+        "import re #Regular expressions\n",
+        "import nltk\n",
+        "from nltk import word_tokenize\n",
+        "nltk.download('stopwords')"
+      ],
+      "metadata": {
+        "_uuid": "8f2839f25d086af736a60e9eeb907d3b93b6e0e5",
+        "_cell_guid": "b1076dfc-b9ad-4769-8c92-a6c4dae69d19",
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:10:30.599942Z",
+          "iopub.execute_input": "2023-02-26T14:10:30.601146Z",
+          "iopub.status.idle": "2023-02-26T14:10:30.742987Z",
+          "shell.execute_reply.started": "2023-02-26T14:10:30.601101Z",
+          "shell.execute_reply": "2023-02-26T14:10:30.741592Z"
+        },
+        "trusted": true,
+        "id": "C0xyXJVYYx7K",
+        "outputId": "92bd242f-b003-454e-c6de-5589bb1fbc6a",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "[nltk_data] Downloading package stopwords to /root/nltk_data...\n",
+            "[nltk_data]   Unzipping corpora/stopwords.zip.\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "True"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 2
+        }
+      ],
+      "execution_count": 2
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Then, the validation and train datasets were saved on two variables by using the function of `read_csv` from pandas, where both didn't have a data header."
+      ],
+      "metadata": {
+        "id": "HA1P9U6YYx7K"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Validation dataset\n",
+        "val=pd.read_csv(\"/kaggle/input/twitter-entity-sentiment-analysis/twitter_validation.csv\", header=None)\n",
+        "#Full dataset for Train-Test\n",
+        "train=pd.read_csv(\"/kaggle/input/twitter-entity-sentiment-analysis/twitter_training.csv\", header=None)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:47.064243Z",
+          "iopub.execute_input": "2023-02-26T14:01:47.064976Z",
+          "iopub.status.idle": "2023-02-26T14:01:47.524718Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:47.06493Z",
+          "shell.execute_reply": "2023-02-26T14:01:47.523451Z"
+        },
+        "trusted": true,
+        "id": "tJ-A_6-PYx7L",
+        "outputId": "e07f0cf5-8cf9-4506-f462-874b2cfacfbe",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 408
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "FileNotFoundError",
+          "evalue": "[Errno 2] No such file or directory: '/kaggle/input/twitter-entity-sentiment-analysis/twitter_validation.csv'",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mFileNotFoundError\u001b[0m                         Traceback (most recent call last)",
+            "\u001b[0;32m<ipython-input-4-a6c447f4c506>\u001b[0m in \u001b[0;36m<cell line: 2>\u001b[0;34m()\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[0;31m#Validation dataset\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 2\u001b[0;31m \u001b[0mval\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mpd\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mread_csv\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m\"/kaggle/input/twitter-entity-sentiment-analysis/twitter_validation.csv\"\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mheader\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mNone\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      3\u001b[0m \u001b[0;31m#Full dataset for Train-Test\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      4\u001b[0m \u001b[0mtrain\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mpd\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mread_csv\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m\"/kaggle/input/twitter-entity-sentiment-analysis/twitter_training.csv\"\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mheader\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mNone\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.10/dist-packages/pandas/io/parsers/readers.py\u001b[0m in \u001b[0;36mread_csv\u001b[0;34m(filepath_or_buffer, sep, delimiter, header, names, index_col, usecols, dtype, engine, converters, true_values, false_values, skipinitialspace, skiprows, skipfooter, nrows, na_values, keep_default_na, na_filter, verbose, skip_blank_lines, parse_dates, infer_datetime_format, keep_date_col, date_parser, date_format, dayfirst, cache_dates, iterator, chunksize, compression, thousands, decimal, lineterminator, quotechar, quoting, doublequote, escapechar, comment, encoding, encoding_errors, dialect, on_bad_lines, delim_whitespace, low_memory, memory_map, float_precision, storage_options, dtype_backend)\u001b[0m\n\u001b[1;32m   1024\u001b[0m     \u001b[0mkwds\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mupdate\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mkwds_defaults\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1025\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m-> 1026\u001b[0;31m     \u001b[0;32mreturn\u001b[0m \u001b[0m_read\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mfilepath_or_buffer\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mkwds\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m   1027\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1028\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.10/dist-packages/pandas/io/parsers/readers.py\u001b[0m in \u001b[0;36m_read\u001b[0;34m(filepath_or_buffer, kwds)\u001b[0m\n\u001b[1;32m    618\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    619\u001b[0m     \u001b[0;31m# Create the parser.\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 620\u001b[0;31m     \u001b[0mparser\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mTextFileReader\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mfilepath_or_buffer\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m**\u001b[0m\u001b[0mkwds\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    621\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    622\u001b[0m     \u001b[0;32mif\u001b[0m \u001b[0mchunksize\u001b[0m \u001b[0;32mor\u001b[0m \u001b[0miterator\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.10/dist-packages/pandas/io/parsers/readers.py\u001b[0m in \u001b[0;36m__init__\u001b[0;34m(self, f, engine, **kwds)\u001b[0m\n\u001b[1;32m   1618\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1619\u001b[0m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mhandles\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mIOHandles\u001b[0m \u001b[0;34m|\u001b[0m \u001b[0;32mNone\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m-> 1620\u001b[0;31m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_engine\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_make_engine\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mf\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mengine\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m   1621\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1622\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0mclose\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m->\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.10/dist-packages/pandas/io/parsers/readers.py\u001b[0m in \u001b[0;36m_make_engine\u001b[0;34m(self, f, engine)\u001b[0m\n\u001b[1;32m   1878\u001b[0m                 \u001b[0;32mif\u001b[0m \u001b[0;34m\"b\"\u001b[0m \u001b[0;32mnot\u001b[0m \u001b[0;32min\u001b[0m \u001b[0mmode\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1879\u001b[0m                     \u001b[0mmode\u001b[0m \u001b[0;34m+=\u001b[0m \u001b[0;34m\"b\"\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m-> 1880\u001b[0;31m             self.handles = get_handle(\n\u001b[0m\u001b[1;32m   1881\u001b[0m                 \u001b[0mf\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1882\u001b[0m                 \u001b[0mmode\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/usr/local/lib/python3.10/dist-packages/pandas/io/common.py\u001b[0m in \u001b[0;36mget_handle\u001b[0;34m(path_or_buf, mode, encoding, compression, memory_map, is_text, errors, storage_options)\u001b[0m\n\u001b[1;32m    871\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0mioargs\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mencoding\u001b[0m \u001b[0;32mand\u001b[0m \u001b[0;34m\"b\"\u001b[0m \u001b[0;32mnot\u001b[0m \u001b[0;32min\u001b[0m \u001b[0mioargs\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mmode\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    872\u001b[0m             \u001b[0;31m# Encoding\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 873\u001b[0;31m             handle = open(\n\u001b[0m\u001b[1;32m    874\u001b[0m                 \u001b[0mhandle\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    875\u001b[0m                 \u001b[0mioargs\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mmode\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;31mFileNotFoundError\u001b[0m: [Errno 2] No such file or directory: '/kaggle/input/twitter-entity-sentiment-analysis/twitter_validation.csv'"
+          ]
+        }
+      ],
+      "execution_count": 4
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Later, the columns were renamed to represent the given data of tweets. But, with the first 5 rows analysis, it was recognized that positive sentiment was assigned to a \"kill\" thread related to a videogame. Even with this in consideration, the modeling, in this case, will the same as a traditional NLP project."
+      ],
+      "metadata": {
+        "id": "nVE2vWHuYx7L"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "train.columns=['id','information','type','text']\n",
+        "train.head()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:47.526374Z",
+          "iopub.execute_input": "2023-02-26T14:01:47.526872Z",
+          "iopub.status.idle": "2023-02-26T14:01:47.547127Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:47.526823Z",
+          "shell.execute_reply": "2023-02-26T14:01:47.545914Z"
+        },
+        "trusted": true,
+        "id": "NzjIsAL7Yx7L"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Then, with the validation data, the information of the first 5 rows didn't show any unusual labeling."
+      ],
+      "metadata": {
+        "id": "Uyq3bIA3Yx7L"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "val.columns=['id','information','type','text']\n",
+        "val.head()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:47.55024Z",
+          "iopub.execute_input": "2023-02-26T14:01:47.551398Z",
+          "iopub.status.idle": "2023-02-26T14:01:47.570094Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:47.551356Z",
+          "shell.execute_reply": "2023-02-26T14:01:47.567584Z"
+        },
+        "trusted": true,
+        "id": "TVOS_1t6Yx7L"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "train_data=train\n",
+        "train_data"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:47.572912Z",
+          "iopub.execute_input": "2023-02-26T14:01:47.573498Z",
+          "iopub.status.idle": "2023-02-26T14:01:47.603314Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:47.573448Z",
+          "shell.execute_reply": "2023-02-26T14:01:47.602086Z"
+        },
+        "trusted": true,
+        "id": "W77yHo-cYx7M"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "val_data=val\n",
+        "val_data"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:47.604868Z",
+          "iopub.execute_input": "2023-02-26T14:01:47.606363Z",
+          "iopub.status.idle": "2023-02-26T14:01:47.631083Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:47.606302Z",
+          "shell.execute_reply": "2023-02-26T14:01:47.629598Z"
+        },
+        "trusted": true,
+        "id": "g7GhFeoeYx7M"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "To prepare the data for the text analysis an additional row was created using the method of `str.lower`. However, as there were some texts with only numerical values (such as one that only had a 2 as the tweet) an additional function was used for transforming all the data to string.\n",
+        "\n",
+        "Then, a regex expression erased the special characters as it is common to have digitation problems on Twitter."
+      ],
+      "metadata": {
+        "id": "ceHlQDF-Yx7M"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Text transformation\n",
+        "train_data[\"lower\"]=train_data.text.str.lower() #lowercase\n",
+        "train_data[\"lower\"]=[str(data) for data in train_data.lower] #converting all to string\n",
+        "train_data[\"lower\"]=train_data.lower.apply(lambda x: re.sub('[^A-Za-z0-9 ]+', ' ', x)) #regex\n",
+        "val_data[\"lower\"]=val_data.text.str.lower() #lowercase\n",
+        "val_data[\"lower\"]=[str(data) for data in val_data.lower] #converting all to string\n",
+        "val_data[\"lower\"]=val_data.lower.apply(lambda x: re.sub('[^A-Za-z0-9 ]+', ' ', x)) #regex"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:47.63253Z",
+          "iopub.execute_input": "2023-02-26T14:01:47.6338Z",
+          "iopub.status.idle": "2023-02-26T14:01:48.30614Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:47.633744Z",
+          "shell.execute_reply": "2023-02-26T14:01:48.304611Z"
+        },
+        "trusted": true,
+        "id": "ck22MSysYx7M"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "The differences between the two text columns are presented in the next table."
+      ],
+      "metadata": {
+        "id": "VoL8iUhKYx7M"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "train_data.head()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:48.307745Z",
+          "iopub.execute_input": "2023-02-26T14:01:48.308264Z",
+          "iopub.status.idle": "2023-02-26T14:01:48.324555Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:48.308214Z",
+          "shell.execute_reply": "2023-02-26T14:01:48.323316Z"
+        },
+        "trusted": true,
+        "id": "oGKkBhIQYx7M"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# 2. Plotting features\n",
+        "\n",
+        "As to identify the main words that were used per label, a word_cloud was used to see which are the most important words on the train data. For example, on the positive label words such as love and game were mostly used alongside a wide variety of words classified as \"good sentiments\"."
+      ],
+      "metadata": {
+        "id": "BzuQPsveYx7M"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "word_cloud_text = ''.join(train_data[train_data[\"type\"]==\"Positive\"].lower)\n",
+        "#Creation of wordcloud\n",
+        "wordcloud = WordCloud(\n",
+        "    max_font_size=100,\n",
+        "    max_words=100,\n",
+        "    background_color=\"black\",\n",
+        "    scale=10,\n",
+        "    width=800,\n",
+        "    height=800\n",
+        ").generate(word_cloud_text)\n",
+        "#Figure properties\n",
+        "plt.figure(figsize=(10,10))\n",
+        "plt.imshow(wordcloud, interpolation=\"bilinear\")\n",
+        "plt.axis(\"off\")\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:01:48.325943Z",
+          "iopub.execute_input": "2023-02-26T14:01:48.327112Z",
+          "iopub.status.idle": "2023-02-26T14:02:08.947009Z",
+          "shell.execute_reply.started": "2023-02-26T14:01:48.327043Z",
+          "shell.execute_reply": "2023-02-26T14:02:08.9458Z"
+        },
+        "trusted": true,
+        "id": "5cUQT5o6Yx7N"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "As for the negative tweets, some curse words were the most important while the names of some games and industries were also very used, such as facebook and eamaddennfl."
+      ],
+      "metadata": {
+        "id": "_qSvyT4uYx7N"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "word_cloud_text = ''.join(train_data[train_data[\"type\"]==\"Negative\"].lower)\n",
+        "#Creation of wordcloud\n",
+        "wordcloud = WordCloud(\n",
+        "    max_font_size=100,\n",
+        "    max_words=100,\n",
+        "    background_color=\"black\",\n",
+        "    scale=10,\n",
+        "    width=800,\n",
+        "    height=800\n",
+        ").generate(word_cloud_text)\n",
+        "#Figure properties\n",
+        "plt.figure(figsize=(10,10))\n",
+        "plt.imshow(wordcloud, interpolation=\"bilinear\")\n",
+        "plt.axis(\"off\")\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:02:08.952423Z",
+          "iopub.execute_input": "2023-02-26T14:02:08.9529Z",
+          "iopub.status.idle": "2023-02-26T14:02:28.270343Z",
+          "shell.execute_reply.started": "2023-02-26T14:02:08.952859Z",
+          "shell.execute_reply": "2023-02-26T14:02:28.269346Z"
+        },
+        "trusted": true,
+        "id": "FpAMo0fzYx7N"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "The irrelevant tweets show a similar trend as negative ones, something that will impact the overall prediction performance."
+      ],
+      "metadata": {
+        "id": "HFixMTQ5Yx7N"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "word_cloud_text = ''.join(train_data[train_data[\"type\"]==\"Irrelevant\"].lower)\n",
+        "#Creation of wordcloud\n",
+        "wordcloud = WordCloud(\n",
+        "    max_font_size=100,\n",
+        "    max_words=100,\n",
+        "    background_color=\"black\",\n",
+        "    scale=10,\n",
+        "    width=800,\n",
+        "    height=800\n",
+        ").generate(word_cloud_text)\n",
+        "#Figure properties\n",
+        "plt.figure(figsize=(10,10))\n",
+        "plt.imshow(wordcloud, interpolation=\"bilinear\")\n",
+        "plt.axis(\"off\")\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:02:28.271887Z",
+          "iopub.execute_input": "2023-02-26T14:02:28.272444Z",
+          "iopub.status.idle": "2023-02-26T14:02:46.718916Z",
+          "shell.execute_reply.started": "2023-02-26T14:02:28.272406Z",
+          "shell.execute_reply": "2023-02-26T14:02:46.717572Z"
+        },
+        "trusted": true,
+        "id": "RfbpyCgmYx7N"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Then, on the neutral side, there are almost no curse words and the most important ones are different from the other 3 categories."
+      ],
+      "metadata": {
+        "id": "SJ90Zp4HYx7N"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "word_cloud_text = ''.join(train_data[train_data[\"type\"]==\"Neutral\"].lower)\n",
+        "#Creation of wordcloud\n",
+        "wordcloud = WordCloud(\n",
+        "    max_font_size=100,\n",
+        "    max_words=100,\n",
+        "    background_color=\"black\",\n",
+        "    scale=10,\n",
+        "    width=800,\n",
+        "    height=800\n",
+        ").generate(word_cloud_text)\n",
+        "#Figure properties\n",
+        "plt.figure(figsize=(10,10))\n",
+        "plt.imshow(wordcloud, interpolation=\"bilinear\")\n",
+        "plt.axis(\"off\")\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:02:46.720611Z",
+          "iopub.execute_input": "2023-02-26T14:02:46.721097Z",
+          "iopub.status.idle": "2023-02-26T14:03:07.502704Z",
+          "shell.execute_reply.started": "2023-02-26T14:02:46.721035Z",
+          "shell.execute_reply": "2023-02-26T14:03:07.501215Z"
+        },
+        "trusted": true,
+        "id": "QmoE1DGhYx7O"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Finally, in this section, the information was grouped by the brand (or in this case the column information) to make a barplot that shows the number of tweets for each one."
+      ],
+      "metadata": {
+        "id": "4CgcymhUYx7O"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Count information per category\n",
+        "plot1=train.groupby(by=[\"information\",\"type\"]).count().reset_index()\n",
+        "plot1.head()"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:07.504285Z",
+          "iopub.execute_input": "2023-02-26T14:03:07.504661Z",
+          "iopub.status.idle": "2023-02-26T14:03:07.561994Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:07.504627Z",
+          "shell.execute_reply": "2023-02-26T14:03:07.560267Z"
+        },
+        "trusted": true,
+        "id": "UDEnkA1tYx7O"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "As an interesting fact, the number of modified texts coincides with the id. For this reason, as the ID is unique, the following barplot shows that for games such as MaddenNFL and NBA2K the number of negative tweets is the highest while on the other brands the trend is different."
+      ],
+      "metadata": {
+        "id": "Ds1TtY-BYx7O"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Figure of comparison per branch\n",
+        "plt.figure(figsize=(20,6))\n",
+        "sns.barplot(data=plot1,x=\"information\",y=\"id\",hue=\"type\")\n",
+        "plt.xticks(rotation=90)\n",
+        "plt.xlabel(\"Brand\")\n",
+        "plt.ylabel(\"Number of tweets\")\n",
+        "plt.grid()\n",
+        "plt.title(\"Distribution of tweets per Branch and Type\");"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:07.56443Z",
+          "iopub.execute_input": "2023-02-26T14:03:07.564981Z",
+          "iopub.status.idle": "2023-02-26T14:03:08.876074Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:07.564946Z",
+          "shell.execute_reply": "2023-02-26T14:03:08.875146Z"
+        },
+        "trusted": true,
+        "id": "KYPnUN6RYx7O"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# 3. Text analysis\n",
+        "\n",
+        "With the clean text, the initial number of unique tokens was counted to identify the model complexity. As presented, there are more than 30 thousand unique words."
+      ],
+      "metadata": {
+        "id": "im0trhQzYx7O"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Text splitting\n",
+        "tokens_text = [word_tokenize(str(word)) for word in train_data.lower]\n",
+        "#Unique word counter\n",
+        "tokens_counter = [item for sublist in tokens_text for item in sublist]\n",
+        "print(\"Number of tokens: \", len(set(tokens_counter)))"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:08.877371Z",
+          "iopub.execute_input": "2023-02-26T14:03:08.877888Z",
+          "iopub.status.idle": "2023-02-26T14:03:19.445066Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:08.877856Z",
+          "shell.execute_reply": "2023-02-26T14:03:19.443663Z"
+        },
+        "trusted": true,
+        "id": "iruT1OoIYx7O"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "The tokens_text variable groups all the texts by the different words stored on a List."
+      ],
+      "metadata": {
+        "id": "kZe2fwYfYx7O"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "tokens_text[1]"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:19.44679Z",
+          "iopub.execute_input": "2023-02-26T14:03:19.447394Z",
+          "iopub.status.idle": "2023-02-26T14:03:19.460881Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:19.447345Z",
+          "shell.execute_reply": "2023-02-26T14:03:19.459536Z"
+        },
+        "trusted": true,
+        "id": "I5J1uQ1xYx7O"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Also, the main English stopwords were saved on an additional variable, to be used in the following modeling."
+      ],
+      "metadata": {
+        "id": "quaf1PBoYx7P"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Choosing english stopwords\n",
+        "stopwords_nltk = nltk.corpus.stopwords\n",
+        "stop_words = stopwords_nltk.words('english')\n",
+        "stop_words[:5]"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:19.462553Z",
+          "iopub.execute_input": "2023-02-26T14:03:19.465685Z",
+          "iopub.status.idle": "2023-02-26T14:03:19.475649Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:19.465641Z",
+          "shell.execute_reply": "2023-02-26T14:03:19.474833Z"
+        },
+        "trusted": true,
+        "id": "5PiL8k5iYx7P"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# 4. Logistic Regression model\n",
+        "\n",
+        "For the main regression model, it was used a simple Logistic Regression of the sklearn library alongside the Bag of Words (BoW) approach. This last method helps to classify and group the relevant data to help the model identify the proper trends.\n",
+        "\n",
+        "On this first BoW, the stopwords were considered alongside a default [ngram](https://deepai.org/machine-learning-glossary-and-terms/n-gram) of 1.\n",
+        "\n",
+        "![Ngram.png](attachment:dbc1ae72-bb04-42d7-8509-1e7995069310.png)"
+      ],
+      "metadata": {
+        "id": "XfiNVedxYx7P"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Initial Bag of Words\n",
+        "bow_counts = CountVectorizer(\n",
+        "    tokenizer=word_tokenize,\n",
+        "    stop_words=stop_words, #English Stopwords\n",
+        "    ngram_range=(1, 1) #analysis of one word\n",
+        ")"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:19.477124Z",
+          "iopub.execute_input": "2023-02-26T14:03:19.477731Z",
+          "iopub.status.idle": "2023-02-26T14:03:19.484319Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:19.477696Z",
+          "shell.execute_reply": "2023-02-26T14:03:19.48348Z"
+        },
+        "trusted": true,
+        "id": "zwkXlhbuYx7P"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Then, the main data was split on train and test datasets alongside the encoding of the words by using the training dataset as a reference:"
+      ],
+      "metadata": {
+        "id": "uHYKJvr5Yx7P"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Train - Test splitting\n",
+        "reviews_train, reviews_test = train_test_split(train_data, test_size=0.2, random_state=0)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:19.485739Z",
+          "iopub.execute_input": "2023-02-26T14:03:19.48638Z",
+          "iopub.status.idle": "2023-02-26T14:03:19.520797Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:19.486345Z",
+          "shell.execute_reply": "2023-02-26T14:03:19.51952Z"
+        },
+        "trusted": true,
+        "id": "fUcL0DvFYx7P"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Creation of encoding related to train dataset\n",
+        "X_train_bow = bow_counts.fit_transform(reviews_train.lower)\n",
+        "#Transformation of test dataset with train encoding\n",
+        "X_test_bow = bow_counts.transform(reviews_test.lower)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:19.5227Z",
+          "iopub.execute_input": "2023-02-26T14:03:19.523974Z",
+          "iopub.status.idle": "2023-02-26T14:03:31.627832Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:19.523921Z",
+          "shell.execute_reply": "2023-02-26T14:03:31.62648Z"
+        },
+        "trusted": true,
+        "id": "R4bCxr1GYx7P"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X_test_bow"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:31.629692Z",
+          "iopub.execute_input": "2023-02-26T14:03:31.630109Z",
+          "iopub.status.idle": "2023-02-26T14:03:31.637341Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:31.630071Z",
+          "shell.execute_reply": "2023-02-26T14:03:31.636105Z"
+        },
+        "trusted": true,
+        "id": "NxQQRMw3Yx7T"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Labels for train and test encoding\n",
+        "y_train_bow = reviews_train['type']\n",
+        "y_test_bow = reviews_test['type']"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:31.638932Z",
+          "iopub.execute_input": "2023-02-26T14:03:31.639314Z",
+          "iopub.status.idle": "2023-02-26T14:03:31.650867Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:31.639279Z",
+          "shell.execute_reply": "2023-02-26T14:03:31.649583Z"
+        },
+        "trusted": true,
+        "id": "CJL2GDurYx7T"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "The total number of tweets for each category shows that negative and positive are the most registered while the irrelevant is the lowest."
+      ],
+      "metadata": {
+        "id": "d30jNxRiYx7T"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Total of registers per category\n",
+        "y_test_bow.value_counts() / y_test_bow.shape[0]"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:31.652243Z",
+          "iopub.execute_input": "2023-02-26T14:03:31.652641Z",
+          "iopub.status.idle": "2023-02-26T14:03:31.673467Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:31.652609Z",
+          "shell.execute_reply": "2023-02-26T14:03:31.672169Z"
+        },
+        "trusted": true,
+        "id": "slAhTcaPYx7T"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "With this data, the Logistic Regression Model was trained, where accuracy of 81% on the test dataset was obtained while on the validation dataset this value increased to 91%."
+      ],
+      "metadata": {
+        "id": "-Q5syxF1Yx7U"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Logistic regression\n",
+        "model1 = LogisticRegression(C=1, solver=\"liblinear\",max_iter=200)\n",
+        "model1.fit(X_train_bow, y_train_bow)\n",
+        "# Prediction\n",
+        "test_pred = model1.predict(X_test_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_test_bow, test_pred) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:31.675489Z",
+          "iopub.execute_input": "2023-02-26T14:03:31.675891Z",
+          "iopub.status.idle": "2023-02-26T14:03:58.111195Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:31.675854Z",
+          "shell.execute_reply": "2023-02-26T14:03:58.109962Z"
+        },
+        "trusted": true,
+        "id": "bW4qmMb9Yx7U"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Validation data\n",
+        "X_val_bow = bow_counts.transform(val_data.lower)\n",
+        "y_val_bow = val_data['type']"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:58.112689Z",
+          "iopub.execute_input": "2023-02-26T14:03:58.113518Z",
+          "iopub.status.idle": "2023-02-26T14:03:58.317045Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:58.113469Z",
+          "shell.execute_reply": "2023-02-26T14:03:58.315558Z"
+        },
+        "trusted": true,
+        "id": "M6I-78-IYx7U"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X_val_bow"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:58.318681Z",
+          "iopub.execute_input": "2023-02-26T14:03:58.319081Z",
+          "iopub.status.idle": "2023-02-26T14:03:58.32699Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:58.319024Z",
+          "shell.execute_reply": "2023-02-26T14:03:58.325651Z"
+        },
+        "trusted": true,
+        "id": "LNxrZhOlYx7U"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "Val_res = model1.predict(X_val_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_val_bow, Val_res) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:58.328592Z",
+          "iopub.execute_input": "2023-02-26T14:03:58.328968Z",
+          "iopub.status.idle": "2023-02-26T14:03:58.343699Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:58.328909Z",
+          "shell.execute_reply": "2023-02-26T14:03:58.342341Z"
+        },
+        "trusted": true,
+        "id": "MproWk0OYx7U"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Finally, another Bag of Words was used. This had an n-gram of 4 while not classifying the stopwords, using all the available information.\n",
+        "\n",
+        "The Test dataset got to 90% while on the validation data the accuracy was 98%, showing that this approach was better than the simple n-gram and stopwords model."
+      ],
+      "metadata": {
+        "id": "_JOCIt6DYx7U"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#n-gram of 4 words\n",
+        "bow_counts = CountVectorizer(\n",
+        "    tokenizer=word_tokenize,\n",
+        "    ngram_range=(1,4)\n",
+        ")\n",
+        "#Data labeling\n",
+        "X_train_bow = bow_counts.fit_transform(reviews_train.lower)\n",
+        "X_test_bow = bow_counts.transform(reviews_test.lower)\n",
+        "X_val_bow = bow_counts.transform(val_data.lower)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:03:58.350077Z",
+          "iopub.execute_input": "2023-02-26T14:03:58.350508Z",
+          "iopub.status.idle": "2023-02-26T14:04:23.308243Z",
+          "shell.execute_reply.started": "2023-02-26T14:03:58.350471Z",
+          "shell.execute_reply": "2023-02-26T14:04:23.307002Z"
+        },
+        "trusted": true,
+        "id": "j8L8x3zVYx7U"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X_train_bow"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:04:23.309884Z",
+          "iopub.execute_input": "2023-02-26T14:04:23.310521Z",
+          "iopub.status.idle": "2023-02-26T14:04:23.318852Z",
+          "shell.execute_reply.started": "2023-02-26T14:04:23.310454Z",
+          "shell.execute_reply": "2023-02-26T14:04:23.317248Z"
+        },
+        "trusted": true,
+        "id": "vE8pbkXqYx7U"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "model2 = LogisticRegression(C=0.9, solver=\"liblinear\",max_iter=1500)\n",
+        "# Logistic regression\n",
+        "model2.fit(X_train_bow, y_train_bow)\n",
+        "# Prediction\n",
+        "test_pred_2 = model2.predict(X_test_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_test_bow, test_pred_2) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:04:23.320639Z",
+          "iopub.execute_input": "2023-02-26T14:04:23.32123Z",
+          "iopub.status.idle": "2023-02-26T14:09:47.385683Z",
+          "shell.execute_reply.started": "2023-02-26T14:04:23.321181Z",
+          "shell.execute_reply": "2023-02-26T14:09:47.384407Z"
+        },
+        "trusted": true,
+        "id": "gTw9jiSVYx7V"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "y_val_bow = val_data['type']\n",
+        "Val_pred_2 = model2.predict(X_val_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_val_bow, Val_pred_2) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:09:47.387535Z",
+          "iopub.execute_input": "2023-02-26T14:09:47.388505Z",
+          "iopub.status.idle": "2023-02-26T14:09:47.400507Z",
+          "shell.execute_reply.started": "2023-02-26T14:09:47.388464Z",
+          "shell.execute_reply": "2023-02-26T14:09:47.398889Z"
+        },
+        "trusted": true,
+        "id": "7ZrfcdQQYx7V"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# XGBoost approach\n",
+        "\n",
+        "![xgboost.png](attachment:1a54e429-6560-4814-80d4-a8fcc8839489.png)\n",
+        "\n",
+        "As the data is already transformed, the additional step was to use another prediction modeling, such as the well know [XGBoost](https://xgboost.readthedocs.io/en/stable/). For this case, the last bag of words was used alongside the XGBoost Classifier:"
+      ],
+      "metadata": {
+        "id": "lzFwy-rlYx7V"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# https://stackoverflow.com/questions/71996617/invalid-classes-inferred-from-unique-values-of-y-expected-0-1-2-3-4-5-got\n",
+        "le = LabelEncoder()\n",
+        "y_train_bow_num = le.fit_transform(y_train_bow)\n",
+        "y_test_bow_num=le.transform(y_test_bow)\n",
+        "y_val_bow_num=le.transform(y_val_bow)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:25:00.499593Z",
+          "iopub.execute_input": "2023-02-26T14:25:00.500118Z",
+          "iopub.status.idle": "2023-02-26T14:25:00.53114Z",
+          "shell.execute_reply.started": "2023-02-26T14:25:00.500081Z",
+          "shell.execute_reply": "2023-02-26T14:25:00.529294Z"
+        },
+        "trusted": true,
+        "id": "8IQIiy_7Yx7V"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "%%time\n",
+        "XGB=XGBClassifier(objective=\"multi:softmax\",n_estimators=1000,colsample_bytree=0.6, subsample=0.6)\n",
+        "XGB.fit(X_train_bow, y_train_bow_num)\n",
+        "# Prediction\n",
+        "test_pred_2 = XGB.predict(X_test_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_test_bow_num, test_pred_2) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:32:25.209571Z",
+          "iopub.execute_input": "2023-02-26T14:32:25.210121Z",
+          "iopub.status.idle": "2023-02-26T14:35:39.67517Z",
+          "shell.execute_reply.started": "2023-02-26T14:32:25.21004Z",
+          "shell.execute_reply": "2023-02-26T14:35:39.67387Z"
+        },
+        "trusted": true,
+        "id": "q444p7yPYx7V"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "y_val_bow = val_data['type']\n",
+        "Val_pred_2 = XGB.predict(X_val_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_val_bow_num, Val_pred_2) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:35:39.680182Z",
+          "iopub.execute_input": "2023-02-26T14:35:39.68085Z",
+          "iopub.status.idle": "2023-02-26T14:35:40.006985Z",
+          "shell.execute_reply.started": "2023-02-26T14:35:39.680808Z",
+          "shell.execute_reply": "2023-02-26T14:35:40.005321Z"
+        },
+        "trusted": true,
+        "id": "k4mVCTz7Yx7V"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "At a first glance, with the default XGBoost parameters, the model gets a worse accuracy. For this reason, an additional cell was added to see the training performance:"
+      ],
+      "metadata": {
+        "id": "gs9JF8skYx7V"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "test_pred_N = XGB.predict(X_train_bow)\n",
+        "print(\"Accuracy: \", accuracy_score(y_train_bow_num, test_pred_N) * 100)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2023-02-26T14:38:23.196044Z",
+          "iopub.execute_input": "2023-02-26T14:38:23.197286Z",
+          "iopub.status.idle": "2023-02-26T14:38:24.283677Z",
+          "shell.execute_reply.started": "2023-02-26T14:38:23.197224Z",
+          "shell.execute_reply": "2023-02-26T14:38:24.282497Z"
+        },
+        "trusted": true,
+        "id": "bxhqUWMJYx7W"
+      },
+      "outputs": [],
+      "execution_count": null
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "It was found that the accuracy is the lowest of all the modeling, so parameter tuning is required to improve the overall performance."
+      ],
+      "metadata": {
+        "id": "OaAWXTWNYx7W"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# Final remarks and future projects\n",
+        "\n",
+        "![pexels-lukas-590022(2).jpg](https://images.pexels.com/photos/590022/pexels-photo-590022.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1)\n",
+        "\n",
+        "As presented in the notebook, a simple NLP approach helped to obtain a 90% accuracy on the test dataset, even with the labeling problems presented in the initial sections.\n",
+        "\n",
+        "The next steps will be the improvement of accuracy with the use of winning competence models alongside an additional EDA analysis for checking labeling and context differences between each of the brands."
+      ],
+      "metadata": {
+        "id": "HKaMdIlSYx7X"
+      }
+    }
+  ]
+}
